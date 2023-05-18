@@ -353,6 +353,12 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 
+- path: {{GetExampleFilepath}}
+  permissions: "0644"
+  owner: root
+  content: |
+    This is a new example file created by cloud-init.
+    #EOF
 
 - path: /etc/sysctl.d/999-sysctl-aks.conf
   permissions: "0644"

@@ -2534,7 +2534,11 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 
 var _linuxCloudInitArtifactsCse_mainSh = []byte(`#!/bin/bash
 # Timeout waiting for a file
-ERR_FILE_WATCH_TIMEOUT=6 
+ERR_FILE_WATCH_TIMEOUT=6
+
+wait_for_file 3600 1 {{GetExampleFilepath}} || exit $ERR_FILE_WATCH_TIMEOUT
+echo "modifying the example file from CSE!" >> {{GetExampleFilepath}}
+
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -2661,7 +2665,7 @@ else
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
-if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
+if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
 
@@ -2686,7 +2690,7 @@ if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
 EOF
         fi
         logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
@@ -2715,7 +2719,7 @@ EOF
         # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
         # this will not be required per nvidia for next gen H100.
         REBOOTREQUIRED=true
-        
+
         # this service applies the partitioning scheme with nvidia-smi.
         # we should consider moving to mig-parted which is simpler/newer.
         # we couldn't because of old drivers but that has long been fixed.
@@ -2755,7 +2759,7 @@ fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     # containerd should not be configured until cni has been configured first
-    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd
 else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
@@ -2806,7 +2810,7 @@ if [ "${NEEDS_CONTAINERD}" == "true" ]; then
 [Service]
 Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
-    
+
     # if k8s version < 1.27.0, add the drop in for --container-runtime flag
     if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
         tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
@@ -2833,7 +2837,7 @@ fi
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 
+        # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
@@ -2900,12 +2904,12 @@ else
             systemctl unmask apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.timer apt-daily-upgrade.timer
-            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
+            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
             # this is the DOWNLOAD service
-            # meaning we are wasting IO without even triggering an upgrade 
+            # meaning we are wasting IO without even triggering an upgrade
             # -________________-
             systemctl restart --no-block apt-daily.service
-            
+
         fi
         aptmarkWALinuxAgent unhold &
     elif [[ $OS == $MARINER_OS_NAME ]]; then
@@ -6401,6 +6405,12 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 
+- path: {{GetExampleFilepath}}
+  permissions: "0644"
+  owner: root
+  content: |
+    This is a new example file created by cloud-init.
+    #EOF
 
 - path: /etc/sysctl.d/999-sysctl-aks.conf
   permissions: "0644"

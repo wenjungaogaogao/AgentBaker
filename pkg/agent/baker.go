@@ -908,6 +908,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldDisableSSH": func() bool {
 			return config.SSHStatus == datamodel.SSHOff
 		},
+		"GetExampleFilepath": func() string {
+			return newExampleFilepath
+		},
 	}
 }
 
